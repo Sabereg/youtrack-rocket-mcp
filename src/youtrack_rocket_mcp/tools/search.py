@@ -5,7 +5,7 @@ YouTrack Search MCP tools.
 import json
 import logging
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastmcp import FastMCP
 from pydantic import Field
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 class SearchTools:
     """Advanced search tools for YouTrack."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the search tools."""
         self.client = YouTrackClient()
         self.issues_api = IssuesClient(self.client)
@@ -275,10 +275,6 @@ class SearchTools:
             logger.exception('Error searching with custom fields')
             return json.dumps({'error': str(e)})
 
-    def close(self) -> None:
-        """Close the API client."""
-        self.client.close()
-
     def get_tool_definitions(self) -> ToolRegistry:
         """
         Get the definitions of all search tools.
@@ -362,7 +358,7 @@ class SearchTools:
         }
 
 
-def register_search_tools(mcp: FastMCP) -> None:
+def register_search_tools(mcp: FastMCP[None]) -> None:
     """Register search tools with the MCP server."""
     search_tools = SearchTools()
 
@@ -421,7 +417,7 @@ def register_search_tools(mcp: FastMCP) -> None:
     async def search_with_custom_fields(
         query: Annotated[str, Field(description='Base query (supports all YouTrack syntax)')],
         custom_fields: Annotated[
-            str | list | dict,
+            str | list[Any] | dict[Any, Any],
             Field(
                 description="""
             Custom field filters: {'Type': 'Bug', 'Severity': 'Critical', 'Subsystem': 'Backend'}

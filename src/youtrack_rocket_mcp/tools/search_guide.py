@@ -306,7 +306,7 @@ class SearchGuide:
         }
 
 
-def register_search_guide_tools(mcp: FastMCP) -> None:
+def register_search_guide_tools(mcp: FastMCP[None]) -> None:
     """Register search guide tools with the MCP server."""
     search_guide = SearchGuide()
 

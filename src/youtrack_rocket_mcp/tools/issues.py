@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 class IssueTools:
     """Issue-related MCP tools."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the issue tools."""
         self.client = YouTrackClient()
         self.issues_api = IssuesClient(self.client)
@@ -206,17 +206,6 @@ class IssueTools:
             return json.dumps({'error': str(e)})
 
     @staticmethod
-    def _extract_parameters_from_dict(
-        project: dict,
-    ) -> tuple[str | None, str | None, str | None, CustomFieldData | None]:
-        """Extract parameters from a dictionary format (backwards compatibility)."""
-        description = project.get('description')
-        summary = project.get('summary')
-        custom_fields = project.get('custom_fields')
-        project_name = project.get('project')
-        return project_name, summary, description, custom_fields
-
-    @staticmethod
     def _generate_issue_url(issue_id: str | None, readable_id: str | None) -> str | None:
         """Generate URL for an issue."""
         if not (issue_id or readable_id):
@@ -233,25 +222,17 @@ class IssueTools:
 
     @staticmethod
     def _prepare_issue_response(
-        issue, issue_url: str | None, summary: str, description: str | None, project: str
+        issue: Any,
+        issue_url: str | None,
+        summary: str,
+        description: str | None,
+        project: str,
     ) -> JSONDict:
         """Prepare the response dictionary for an issue."""
-        if hasattr(issue, 'model_dump'):
-            result = issue.model_dump()
-        elif isinstance(issue, dict):
-            result = issue
-        else:
-            # Fallback - convert to dict
-            result = {
-                'id': getattr(issue, 'id', None),
-                'summary': getattr(issue, 'summary', summary),
-                'description': getattr(issue, 'description', description),
-                'project': project,
-                '$type': 'Issue',
-            }
+        result: JSONDict = issue.model_dump() if hasattr(issue, 'model_dump') else {}
 
         # Add URL to result
-        if issue_url and isinstance(result, dict):
+        if issue_url:
             result['url'] = issue_url
             result['status'] = 'success'
             logger.info(f'Issue created successfully: {issue_url}')
@@ -287,14 +268,6 @@ class IssueTools:
         try:
             # Check if we got proper parameters
             logger.debug(f'Creating issue with: project={project}, summary={summary}, description={description}')
-
-            # Handle kwargs format from MCP - this check is for backwards compatibility
-            # In practice, project should always be a string at this point
-            # type: ignore[unreachable]
-            if isinstance(project, dict) and 'project' in project and 'summary' in project:  # type: ignore[unreachable]
-                # Extract from dict if we got project as a JSON object
-                logger.info('Detected project as a dictionary, extracting parameters')  # type: ignore[unreachable]
-                project, summary, description, custom_fields = self._extract_parameters_from_dict(project)  # type: ignore[unreachable]
 
             # Ensure we have valid data
             if not project:
@@ -334,22 +307,9 @@ class IssueTools:
             try:
                 issue = await self.issues_api.create_issue(project_id, summary, description, additional_fields)
 
-                # Check if we got an issue with an ID
-                if isinstance(issue, dict) and issue.get('error'):
-                    # Handle error returned as a dict
-                    return json.dumps(issue)
-
                 # Get issue ID and readable ID for link generation
-                issue_id = None
-                readable_id = None
-
-                if hasattr(issue, 'id'):
-                    issue_id = issue.id
-                    if hasattr(issue, 'idReadable'):
-                        readable_id = issue.idReadable
-                elif isinstance(issue, dict):
-                    issue_id = issue.get('id')
-                    readable_id = issue.get('idReadable')
+                issue_id = issue.id if hasattr(issue, 'id') else None
+                readable_id = issue.idReadable if hasattr(issue, 'idReadable') else None
 
                 # Generate issue URL
                 issue_url = self._generate_issue_url(issue_id, readable_id)
@@ -525,7 +485,7 @@ class IssueTools:
             return json.dumps({'error': str(e)})
 
 
-def register_issue_tools(mcp: FastMCP) -> None:
+def register_issue_tools(mcp: FastMCP[None]) -> None:
     """Register issue tools with the MCP server."""
     issue_tools = IssueTools()
 

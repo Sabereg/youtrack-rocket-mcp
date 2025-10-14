@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class UserTools:
     """User-related MCP tools."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the user tools."""
         self.client = YouTrackClient()
         self.users_api = UsersClient(self.client)
@@ -56,12 +56,7 @@ class UserTools:
                 return json.dumps({'error': 'User ID is required'})
 
             user_obj = await self.users_api.get_user(user_identifier)
-
-            # Handle both Pydantic models and dictionaries in the response
-            if user_obj is None:
-                return json.dumps({'error': 'User not found'})
-
-            result = user_obj.model_dump() if hasattr(user_obj, 'model_dump') else user_obj
+            result = user_obj.model_dump()
 
             return json.dumps(result, indent=2)
         except (ValueError, KeyError, TypeError) as e:
@@ -86,11 +81,10 @@ class UserTools:
 
             user = await self.users_api.get_user_by_login(login)
 
-            # Handle both Pydantic models and dictionaries in the response
             if user is None:
                 return json.dumps({'error': 'User not found'})
 
-            result = user.model_dump() if hasattr(user, 'model_dump') else user
+            result = user.model_dump()
 
             return json.dumps(result, indent=2)
         except (ValueError, KeyError, TypeError) as e:
@@ -117,32 +111,7 @@ class UserTools:
                 return json.dumps({'error': 'User ID is required'})
 
             groups = await self.users_api.get_user_groups(user_identifier)
-
-            # Handle various response formats safely
-            if groups is None:
-                return json.dumps([])
-
-            # If it's a dictionary (direct API response)
-            if isinstance(groups, dict):
-                return json.dumps(groups, indent=2)
-
-            # If it's a list of objects
-            try:
-                result = []
-                # Try to iterate, but handle errors safely
-                for group in groups:
-                    if hasattr(group, 'model_dump'):
-                        result.append(group.model_dump())
-                    elif isinstance(group, dict):
-                        result.append(group)
-                    else:
-                        # Last resort: convert to string
-                        result.append(str(group))
-                return json.dumps(result, indent=2)
-            except (ValueError, KeyError, TypeError) as e:
-                # If we can't iterate, return the raw string representation
-                logger.warning(f'Could not process groups response: {e!s}')
-                return json.dumps({'groups': str(groups)})
+            return json.dumps(groups, indent=2)
         except (ValueError, KeyError, TypeError) as e:
             logger.exception(f'Error getting groups for user {user_id or user}')
             return json.dumps({'error': str(e)})
@@ -166,10 +135,6 @@ class UserTools:
         except (ValueError, KeyError, TypeError) as e:
             logger.exception(f'Error searching users with query {query}')
             return json.dumps({'error': str(e)})
-
-    def close(self) -> None:
-        """Close the API client."""
-        self.client.close()
 
     def get_tool_definitions(self) -> ToolRegistry:
         """
@@ -210,7 +175,7 @@ class UserTools:
         }
 
 
-def register_user_tools(mcp: FastMCP) -> None:
+def register_user_tools(mcp: FastMCP[None]) -> None:
     """Register user tools with the MCP server."""
     user_tools = UserTools()
 

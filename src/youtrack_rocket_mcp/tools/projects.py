@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class ProjectTools:
     """Project-related MCP tools."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the project tools."""
         self.client = YouTrackClient()
         self.projects_api = ProjectsClient(self.client)
@@ -50,15 +50,7 @@ class ProjectTools:
         """
         try:
             projects = await self.projects_api.get_projects(include_archived=include_archived)
-
-            # Handle both Pydantic models and dictionaries in the response
-            result = []
-            for project in projects:
-                if hasattr(project, 'model_dump'):
-                    result.append(project.model_dump())
-                else:
-                    result.append(project)  # Assume it's already a dict
-
+            result = [project.model_dump() for project in projects]
             return json.dumps(result, indent=2)
         except (ValueError, KeyError, TypeError) as e:
             logger.exception('Error getting projects')
@@ -88,9 +80,7 @@ class ProjectTools:
                 return json.dumps({'error': 'Project ID is required'})
 
             project_obj = await self.projects_api.get_project(project_identifier)
-
-            # Handle both Pydantic models and dictionaries in the response
-            result = project_obj.model_dump() if hasattr(project_obj, 'model_dump') else project_obj
+            result = project_obj.model_dump()
 
             # If compact mode, simplify custom fields
             if compact and 'custom_fields' in result and result['custom_fields']:
@@ -194,10 +184,7 @@ class ProjectTools:
 
             project = await self.projects_api.get_project_by_name(project_name)
             if project:
-                # Handle both Pydantic models and dictionaries in the response
-                result = project.model_dump() if hasattr(project, 'model_dump') else project
-
-                return json.dumps(result, indent=2)
+                return json.dumps(project.model_dump(), indent=2)
             return json.dumps({'error': f"Project '{project_name}' not found"})
         except (ValueError, KeyError, TypeError) as e:
             logger.exception(f'Error finding project by name {project_name}')
@@ -273,10 +260,14 @@ class ProjectTools:
             for field in custom_fields:
                 current_field_name = field.get('field', {}).get('name', '')
                 if current_field_name.lower() == field_name.lower():
+                    field_type_raw = field.get('$type', '')
+                    field_type = (
+                        field_type_raw.replace('ProjectCustomField', '') if isinstance(field_type_raw, str) else ''
+                    )
                     result = {
                         'project': project_id,
                         'field_name': current_field_name,
-                        'field_type': field.get('$type', '').replace('ProjectCustomField', ''),
+                        'field_type': field_type,
                         'required': not field.get('canBeEmpty', True),
                     }
 
@@ -337,32 +328,7 @@ class ProjectTools:
                 return json.dumps({'error': 'Project ID is required'})
 
             fields = await self.projects_api.get_custom_fields(project_identifier)
-
-            # Handle various response formats safely
-            if fields is None:
-                return json.dumps([])
-
-            # If it's a dictionary (direct API response)
-            if isinstance(fields, dict):
-                return json.dumps(fields, indent=2)
-
-            # If it's a list of objects
-            try:
-                result = []
-                # Try to iterate, but handle errors safely
-                for field in fields:
-                    if hasattr(field, 'model_dump'):
-                        result.append(field.model_dump())
-                    elif isinstance(field, dict):
-                        result.append(field)
-                    else:
-                        # Last resort: convert to string
-                        result.append(str(field))
-                return json.dumps(result, indent=2)
-            except (ValueError, KeyError, TypeError) as e:
-                # If we can't iterate, return the raw string representation
-                logger.warning(f'Could not process custom fields response: {e!s}')
-                return json.dumps({'custom_fields': str(fields)})
+            return json.dumps(fields, indent=2)
         except (ValueError, KeyError, TypeError) as e:
             logger.exception(f'Error getting custom fields for project {project_id or project}')
             return json.dumps({'error': str(e)})
@@ -475,11 +441,7 @@ class ProjectTools:
             project = await self.projects_api.create_project(
                 name=name, short_name=short_name, lead_id=lead_id, description=description
             )
-
-            # Handle both Pydantic models and dictionaries in the response
-            result = project.model_dump() if hasattr(project, 'model_dump') else project
-
-            return json.dumps(result, indent=2)
+            return json.dumps(project.model_dump(), indent=2)
         except (ValueError, KeyError, TypeError) as e:
             logger.exception(f'Error creating project {name}')
             return json.dumps({'error': str(e)})
@@ -541,9 +503,7 @@ class ProjectTools:
                 # If no parameters were provided, return current project
                 if not data:
                     logger.info('No parameters to update, returning current project')
-                    if hasattr(existing_project, 'model_dump'):
-                        return json.dumps(existing_project.model_dump(), indent=2)
-                    return json.dumps(existing_project, indent=2)
+                    return json.dumps(existing_project.model_dump(), indent=2)
 
                 # Log the data being sent
                 logger.info(f'Updating project with data: {data}')
@@ -561,10 +521,7 @@ class ProjectTools:
                 try:
                     updated_project = await self.projects_api.get_project(project_identifier)
                     logger.info(f'Retrieved updated project: {updated_project.name}')
-
-                    if hasattr(updated_project, 'model_dump'):
-                        return json.dumps(updated_project.model_dump(), indent=2)
-                    return json.dumps(updated_project, indent=2)
+                    return json.dumps(updated_project.model_dump(), indent=2)
                 except (ValueError, KeyError, TypeError) as e:
                     logger.exception('Error retrieving updated project')
                     return json.dumps({'error': f'Project was updated but could not retrieve the result: {e!s}'})
@@ -573,10 +530,6 @@ class ProjectTools:
         except (ValueError, KeyError, TypeError) as e:
             logger.exception(f'Error updating project {project_id or project}')
             return json.dumps({'error': str(e)})
-
-    def close(self) -> None:
-        """Close the API client."""
-        self.client.close()
 
     @staticmethod
     def get_tool_definitions() -> ToolRegistry:
@@ -692,7 +645,7 @@ class ProjectTools:
         }
 
 
-def register_project_tools(mcp: FastMCP) -> None:
+def register_project_tools(mcp: FastMCP[None]) -> None:
     """Register project tools with the MCP server."""
     project_tools = ProjectTools()
 

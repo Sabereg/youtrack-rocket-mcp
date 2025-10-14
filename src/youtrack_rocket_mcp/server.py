@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def server_lifespan(server: FastMCP) -> AsyncIterator[None]:
+async def server_lifespan(server: FastMCP[None]) -> AsyncIterator[None]:
     """Handle server startup and shutdown."""
     # Startup
     logger.debug('Server starting up...')
@@ -42,12 +42,12 @@ async def server_lifespan(server: FastMCP) -> AsyncIterator[None]:
 
 
 # Initialize FastMCP server with name, instructions and lifespan
-mcp: FastMCP = FastMCP(
+mcp: FastMCP[None] = FastMCP(
     name=config.MCP_SERVER_NAME, instructions=config.MCP_SERVER_INSTRUCTIONS, lifespan=server_lifespan
 )
 
 
-def main():
+def main() -> None:
     """Main entry point for the FastMCP YouTrack server."""
 
     try:

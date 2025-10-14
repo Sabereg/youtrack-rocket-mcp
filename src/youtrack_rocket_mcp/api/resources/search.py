@@ -2,15 +2,18 @@
 YouTrack Search API client with advanced search capabilities.
 """
 
+from typing import Any
+
 from youtrack_rocket_mcp.api.client import YouTrackClient
-from youtrack_rocket_mcp.api.types import CustomFieldData, JSONList
+from youtrack_rocket_mcp.api.schemas import CustomFieldSettingDict, IssueDict
+from youtrack_rocket_mcp.api.types import CustomFieldData
 
 
 class SearchClient:
     """Client for advanced search operations in YouTrack."""
 
     @staticmethod
-    def format_custom_fields(custom_fields: list) -> dict[str, str | None]:
+    def format_custom_fields(custom_fields: list[Any]) -> dict[str, str | None]:
         """
         Format custom fields from array to dictionary {name: value}.
 
@@ -74,7 +77,7 @@ class SearchClient:
         sort_by: str | None = None,
         sort_order: str | None = None,
         custom_fields: list[str] | None = None,
-    ) -> JSONList:
+    ) -> list[IssueDict]:
         """
         Search for issues with advanced query capabilities.
 
@@ -130,7 +133,7 @@ class SearchClient:
                 params['$sortOrder'] = sort_order.lower()
 
         # Make the API request
-        issues = await self.client.get('issues', params=params)
+        issues = await self.client.get('issues', params=params, schema=list[IssueDict])
 
         # Format custom fields for each issue
         for issue in issues:
@@ -143,7 +146,7 @@ class SearchClient:
 
     async def search_with_custom_field_values(
         self, query: str, custom_field_values: CustomFieldData, limit: int = 10
-    ) -> JSONList:
+    ) -> list[IssueDict]:
         """
         Search for issues with specific custom field values.
 
@@ -194,7 +197,7 @@ class SearchClient:
         updated_before: str | None = None,
         custom_fields: CustomFieldData | None = None,
         limit: int = 10,
-    ) -> JSONList:
+    ) -> list[IssueDict]:
         """
         Search for issues using a structured filter approach.
 
@@ -260,7 +263,7 @@ class SearchClient:
             return await self.search_with_custom_field_values(base_query, custom_fields, limit)
         return await self.search_issues(base_query, limit=limit)
 
-    async def get_available_custom_fields(self, project_id: str | None = None) -> JSONList:
+    async def get_available_custom_fields(self, project_id: str | None = None) -> list[CustomFieldSettingDict]:
         """
         Get all available custom fields, optionally for a specific project.
 
@@ -280,4 +283,4 @@ class SearchClient:
         fields = 'id,name,localizedName,fieldType(id,name),isPrivate,isPublic,aliases'
         params = {'fields': fields}
 
-        return await self.client.get(endpoint, params=params)
+        return await self.client.get(endpoint, params=params, schema=list[CustomFieldSettingDict])

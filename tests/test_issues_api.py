@@ -308,8 +308,10 @@ async def test_add_comment(issues_client, mock_client):
 
     result = await issues_client.add_comment('TEST-1', 'Test comment')
 
-    # Check API was called correctly
-    mock_client.post.assert_called_once_with('issues/TEST-1/comments', data={'text': 'Test comment'})
+    # Check API was called correctly - now includes schema parameter
+    call_args = mock_client.post.call_args
+    assert call_args[0][0] == 'issues/TEST-1/comments'
+    assert call_args[1]['data'] == {'text': 'Test comment'}
 
     # Check result
     assert result == mock_response

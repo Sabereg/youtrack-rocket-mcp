@@ -152,17 +152,10 @@ line-ending = "auto"
 # MyPy configuration
 [tool.mypy]
 python_version = "3.12"
+strict = true
 show_column_numbers = true
 show_error_context = false
 follow_imports = "normal"
-ignore_missing_imports = true
-disallow_untyped_calls = false
-warn_return_any = false
-strict_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = false
-disallow_untyped_defs = false  # Changed to false to allow gradual typing
-check_untyped_defs = false
 plugins = ["pydantic.mypy"]
 warn_unreachable = true
 mypy_path = ["src"]

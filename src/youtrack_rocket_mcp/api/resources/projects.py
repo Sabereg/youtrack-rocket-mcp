@@ -8,6 +8,7 @@ import logging
 from pydantic import BaseModel, Field
 
 from youtrack_rocket_mcp.api.client import YouTrackClient
+from youtrack_rocket_mcp.api.schemas import IssueDict, ProjectCustomFieldDict
 from youtrack_rocket_mcp.api.types import JSONDict, JSONList
 
 logger = logging.getLogger(__name__)
@@ -111,7 +112,7 @@ class ProjectsClient:
 
         return None
 
-    async def get_project_issues(self, project_id: str, limit: int = 10) -> JSONList:
+    async def get_project_issues(self, project_id: str, limit: int = 10) -> list[IssueDict]:
         """
         Get issues for a specific project.
 
@@ -143,7 +144,7 @@ class ProjectsClient:
         params = {'$filter': f'project/id eq "{project_id}"', '$top': limit, 'fields': fields}
 
         try:
-            issues = await self.client.get('issues', params=params)
+            issues = await self.client.get('issues', params=params, schema=list[IssueDict])
             logger.info(f'Retrieved {len(issues) if isinstance(issues, list) else 0} issues')
         except (ValueError, KeyError, TypeError):
             logger.exception(f'Error getting issues for project {project_id}')
@@ -315,7 +316,7 @@ class ProjectsClient:
         """
         await self.client.delete(f'admin/projects/{project_id}')
 
-    async def get_custom_fields(self, project_id: str) -> JSONList:
+    async def get_custom_fields(self, project_id: str) -> list[ProjectCustomFieldDict]:
         """
         Get custom fields for a project with detailed information.
 
@@ -336,7 +337,9 @@ class ProjectsClient:
         params = {'fields': fields}
 
         try:
-            result = await self.client.get(f'admin/projects/{project_id}/customFields', params=params)
+            result = await self.client.get(
+                f'admin/projects/{project_id}/customFields', params=params, schema=list[ProjectCustomFieldDict]
+            )
             field_count = len(result) if isinstance(result, list) else 0
             logger.info(f'Successfully retrieved {field_count} custom fields for project {project_id}')
 
@@ -376,7 +379,9 @@ class ProjectsClient:
             logger.exception(f'Error getting detailed custom fields for project {project_id}')
             # Fallback to basic request without fields parameter
             try:
-                basic_result = await self.client.get(f'admin/projects/{project_id}/customFields')
+                basic_result = await self.client.get(
+                    f'admin/projects/{project_id}/customFields', schema=list[ProjectCustomFieldDict]
+                )
                 logger.warning(f'Falling back to basic custom fields request for project {project_id}')
             except (ValueError, KeyError, TypeError):
                 logger.exception('Fallback request also failed')
@@ -386,7 +391,9 @@ class ProjectsClient:
         else:
             return enhanced_fields
 
-    async def add_custom_field(self, project_id: str, field_id: str, empty_field_text: str | None = None) -> JSONDict:
+    async def add_custom_field(
+        self, project_id: str, field_id: str, empty_field_text: str | None = None
+    ) -> ProjectCustomFieldDict:
         """
         Add a custom field to a project.
 
@@ -403,7 +410,9 @@ class ProjectsClient:
         if empty_field_text:
             data['emptyFieldText'] = empty_field_text  # type: ignore[assignment]
 
-        return await self.client.post(f'admin/projects/{project_id}/customFields', data=data)
+        return await self.client.post(
+            f'admin/projects/{project_id}/customFields', data=data, schema=ProjectCustomFieldDict
+        )
 
     async def get_project_fields_from_issues(self, project_id: str) -> JSONDict:
         """

@@ -6,17 +6,19 @@ import asyncio
 import logging
 import random
 from types import TracebackType
-from typing import TYPE_CHECKING, Any
-
-from youtrack_rocket_mcp.api.types import JSONDict, JSONValue, QueryParams
-
-if TYPE_CHECKING:
-    pass
+from typing import TYPE_CHECKING, Any, TypeVar, cast, overload
 
 import httpx
 from pydantic import BaseModel, ConfigDict
 
+from youtrack_rocket_mcp.api.types import JSONDict, JSONValue, QueryParams
 from youtrack_rocket_mcp.config import config
+
+T = TypeVar('T')
+
+if TYPE_CHECKING:
+    pass
+
 
 logger = logging.getLogger(__name__)
 
@@ -204,33 +206,57 @@ class YouTrackClient:
         # Should never reach here
         raise YouTrackAPIError(f'Request failed after {self.max_retries} attempts')
 
-    async def get(self, endpoint: str, params: QueryParams | None = None, **kwargs: Any) -> JSONValue:
+    @overload
+    async def get(self, endpoint: str, params: QueryParams | None = None, *, schema: type[T], **kwargs: Any) -> T: ...
+
+    @overload
+    async def get(self, endpoint: str, params: QueryParams | None = None, **kwargs: Any) -> JSONValue: ...
+
+    async def get(
+        self, endpoint: str, params: QueryParams | None = None, schema: type[T] | None = None, **kwargs: Any
+    ) -> T | JSONValue:
         """
         Make a GET request.
 
         Args:
             endpoint: API endpoint
             params: Query parameters
+            schema: Optional type for return value (for type checking only)
             **kwargs: Additional request arguments
 
         Returns:
             Parsed JSON response
         """
-        return await self._make_request('GET', endpoint, params=params, **kwargs)
+        result = await self._make_request('GET', endpoint, params=params, **kwargs)
+        if schema is not None:
+            return cast(T, result)
+        return result
 
-    async def post(self, endpoint: str, data: JSONDict | None = None, **kwargs: Any) -> JSONValue:
+    @overload
+    async def post(self, endpoint: str, data: JSONDict | None = None, *, schema: type[T], **kwargs: Any) -> T: ...
+
+    @overload
+    async def post(self, endpoint: str, data: JSONDict | None = None, **kwargs: Any) -> JSONValue: ...
+
+    async def post(
+        self, endpoint: str, data: JSONDict | None = None, schema: type[T] | None = None, **kwargs: Any
+    ) -> T | JSONValue:
         """
         Make a POST request.
 
         Args:
             endpoint: API endpoint
             data: Request body data
+            schema: Optional type for return value (for type checking only)
             **kwargs: Additional request arguments
 
         Returns:
             Parsed JSON response
         """
-        return await self._make_request('POST', endpoint, data=data, **kwargs)
+        result = await self._make_request('POST', endpoint, data=data, **kwargs)
+        if schema is not None:
+            return cast(T, result)
+        return result
 
     async def put(self, endpoint: str, data: JSONDict | None = None, **kwargs: Any) -> JSONValue:
         """

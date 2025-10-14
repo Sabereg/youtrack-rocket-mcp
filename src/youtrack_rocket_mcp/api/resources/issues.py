@@ -15,6 +15,7 @@ from youtrack_rocket_mcp.api.field_cache import (
     get_field_types_from_project,
 )
 from youtrack_rocket_mcp.api.resources.projects import ProjectsClient
+from youtrack_rocket_mcp.api.schemas import IssueCommentDict
 from youtrack_rocket_mcp.api.types import CustomFieldData, FieldTypes, FieldValue, JSONDict
 from youtrack_rocket_mcp.utils.period_parser import parse_period_to_minutes
 
@@ -142,9 +143,9 @@ class IssuesClient:
             else:
                 field_entry['value'] = field_value
         elif field_type == 'SingleUserIssueCustomField':
-            field_entry['value'] = {'login': field_value} if isinstance(field_value, str) else field_value  # type: ignore[assignment]
+            field_entry['value'] = {'login': field_value} if isinstance(field_value, str) else field_value
         elif field_type in ['SingleEnumIssueCustomField', 'StateIssueCustomField']:
-            field_entry['value'] = {'name': field_value} if isinstance(field_value, str) else field_value  # type: ignore[assignment]
+            field_entry['value'] = {'name': field_value} if isinstance(field_value, str) else field_value
         elif field_type in [
             'DateIssueCustomField',
             'SimpleIssueCustomField',
@@ -152,7 +153,7 @@ class IssuesClient:
         ] or field_type.startswith('Multi'):
             field_entry['value'] = field_value
         else:
-            field_entry['value'] = {'name': field_value} if isinstance(field_value, str) else field_value  # type: ignore[assignment]
+            field_entry['value'] = {'name': field_value} if isinstance(field_value, str) else field_value
 
         return field_entry
 
@@ -274,12 +275,14 @@ class IssuesClient:
                     issue_id = result['error_issue_id']
                     logger.info(f'Issue created (draft/incomplete): {issue_id}')
                     # Return an Issue object preserving input data
-                    return Issue(
-                        id=issue_id,
-                        summary=summary,
-                        description=description,
-                        project={'id': project_id},
-                        custom_fields=[],
+                    return Issue.model_validate(
+                        {
+                            'id': issue_id,
+                            'summary': summary,
+                            'description': description,
+                            'project': {'id': project_id},
+                            'custom_fields': [],
+                        },
                     )
 
                 # Normal successful response
@@ -290,17 +293,23 @@ class IssuesClient:
                 try:
                     return Issue.model_validate(result)
                 except (ValueError, TypeError, KeyError):
-                    return Issue(
-                        id=issue_id,
-                        summary=summary or result.get('summary', ''),
-                        description=description or result.get('description'),
-                        project={'id': project_id},
+                    return Issue.model_validate(
+                        {
+                            'id': issue_id,
+                            'summary': summary or result.get('summary', ''),
+                            'description': description or result.get('description'),
+                            'project': {'id': project_id},
+                        }
                     )
             except (ValueError, TypeError, KeyError, AttributeError):
                 logger.exception('Error parsing response')
                 # Still return something if we have a response
-                return Issue(
-                    id=f'response-{response.status_code}', summary=summary or 'Created', project={'id': project_id}
+                return Issue.model_validate(
+                    {
+                        'id': f'response-{response.status_code}',
+                        'summary': summary or 'Created',
+                        'project': {'id': project_id},
+                    }
                 )
 
         except (httpx.HTTPError, ValueError) as e:
@@ -419,7 +428,7 @@ class IssuesClient:
                 return issue_response['comments']
             return []
 
-    async def add_comment(self, issue_id: str, text: str) -> JSONDict:
+    async def add_comment(self, issue_id: str, text: str) -> IssueCommentDict:
         """
         Add a comment to an issue.
 
@@ -431,4 +440,4 @@ class IssuesClient:
             The created comment data
         """
         data = {'text': text}
-        return await self.client.post(f'issues/{issue_id}/comments', data=data)
+        return await self.client.post(f'issues/{issue_id}/comments', data=data, schema=IssueCommentDict)

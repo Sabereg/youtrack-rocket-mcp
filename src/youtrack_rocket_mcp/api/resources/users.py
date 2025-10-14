@@ -7,7 +7,7 @@ import logging
 from pydantic import BaseModel
 
 from youtrack_rocket_mcp.api.client import YouTrackClient
-from youtrack_rocket_mcp.api.types import JSONList
+from youtrack_rocket_mcp.api.schemas import UserGroupDict
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +114,7 @@ class UsersClient:
 
         return None
 
-    async def get_user_groups(self, user_id: str) -> JSONList:
+    async def get_user_groups(self, user_id: str) -> list[UserGroupDict]:
         """
         Get groups for a user.
 
@@ -124,7 +124,7 @@ class UsersClient:
         Returns:
             List of group data
         """
-        return await self.client.get(f'users/{user_id}/groups')
+        return await self.client.get(f'users/{user_id}/groups', schema=list[UserGroupDict])
 
     async def check_user_permissions(self, user_id: str, permission: str) -> bool:
         """
