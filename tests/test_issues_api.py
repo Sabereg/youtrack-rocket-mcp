@@ -175,7 +175,7 @@ async def test_create_issue_no_field_types_uses_default(mock_get_field_types, mo
     # Setup mocks - no field types available
     mock_cache.get_field_types.return_value = None
     mock_get_field_types.return_value = None
-    mock_client.get.side_effect = Exception('Cannot get issues')
+    mock_client.get.side_effect = ValueError('Cannot get issues')
 
     # Mock successful issue creation
     mock_response = Mock()

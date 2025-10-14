@@ -16,6 +16,7 @@ from youtrack_rocket_mcp.api.field_cache import (
 )
 from youtrack_rocket_mcp.api.resources.projects import ProjectsClient
 from youtrack_rocket_mcp.api.types import CustomFieldData, FieldTypes, FieldValue, JSONDict
+from youtrack_rocket_mcp.utils.period_parser import parse_period_to_minutes
 
 logger = logging.getLogger(__name__)
 
@@ -108,13 +109,14 @@ class IssuesClient:
                     field_cache.set_field_types(project_id, cached_field_types)
                     logger.info(f'Cached {len(cached_field_types)} field types from issues')
                 return cached_field_types
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, KeyError) as e:
             logger.warning(f'Could not fetch sample issues for field type analysis: {e}')
         return None
 
-    def _format_custom_field(self, field_key: str, field_value: FieldValue, field_type: str | None) -> JSONDict:
+    @staticmethod
+    def _format_custom_field(field_key: str, field_value: FieldValue, field_type: str | None) -> JSONDict:
         """Format a single custom field for the API."""
-        field_entry = {'name': field_key}
+        field_entry: JSONDict = {'name': field_key}
 
         if not field_type:
             logger.warning(f"No type found for field '{field_key}', using default SingleEnumIssueCustomField")
@@ -124,13 +126,27 @@ class IssuesClient:
 
         if isinstance(field_value, dict) and '$type' in field_value:
             field_entry.update(field_value)
+        elif field_type == 'PeriodIssueCustomField':
+            # Handle period fields: convert "1h 30m" or integer to {"minutes": N}
+            if isinstance(field_value, str):
+                try:
+                    minutes = parse_period_to_minutes(field_value)
+                    field_entry['value'] = {'minutes': minutes}
+                    logger.debug(f"Converted period field '{field_key}': '{field_value}' -> {minutes} minutes")
+                except (ValueError, TypeError) as e:
+                    logger.warning(f"Failed to parse period value '{field_value}' for field '{field_key}': {e}")
+                    field_entry['value'] = field_value
+            elif isinstance(field_value, int):
+                field_entry['value'] = {'minutes': field_value}
+                logger.debug(f"Period field '{field_key}' set to {field_value} minutes")
+            else:
+                field_entry['value'] = field_value
         elif field_type == 'SingleUserIssueCustomField':
             field_entry['value'] = {'login': field_value} if isinstance(field_value, str) else field_value  # type: ignore[assignment]
         elif field_type in ['SingleEnumIssueCustomField', 'StateIssueCustomField']:
             field_entry['value'] = {'name': field_value} if isinstance(field_value, str) else field_value  # type: ignore[assignment]
         elif field_type in [
             'DateIssueCustomField',
-            'PeriodIssueCustomField',
             'SimpleIssueCustomField',
             'TextIssueCustomField',
         ] or field_type.startswith('Multi'):
@@ -194,9 +210,11 @@ class IssuesClient:
         """
         # Validate input data
         if not project_id:
-            raise ValueError('Project ID is required')
+            msg = 'Project ID is required'
+            raise ValueError(msg)
         if not summary:
-            raise ValueError('Summary is required')
+            msg = 'Summary is required'
+            raise ValueError(msg)
 
         # Resolve project ID
         project_id, original_project_id = await self._resolve_project_id(project_id)
@@ -271,23 +289,24 @@ class IssuesClient:
                 # Try to parse with model, fallback to minimal object
                 try:
                     return Issue.model_validate(result)
-                except Exception:
+                except (ValueError, TypeError, KeyError):
                     return Issue(
                         id=issue_id,
                         summary=summary or result.get('summary', ''),
                         description=description or result.get('description'),
                         project={'id': project_id},
                     )
-            except Exception:
+            except (ValueError, TypeError, KeyError, AttributeError):
                 logger.exception('Error parsing response')
                 # Still return something if we have a response
                 return Issue(
                     id=f'response-{response.status_code}', summary=summary or 'Created', project={'id': project_id}
                 )
 
-        except Exception:
+        except (httpx.HTTPError, ValueError) as e:
             logger.exception(f'Error creating issue, Data: {data}')
-            raise
+            msg = f'Failed to create issue: {e}'
+            raise YouTrackAPIError(msg, 0, None) from e
 
     def _handle_create_error(self, response: httpx.Response, original_project_id: str) -> None:
         """Handle error response from issue creation."""
@@ -305,7 +324,7 @@ class IssuesClient:
                 error_msg += f"\n\nHint: Project '{original_project_id}' was not found."
                 error_msg += '\nUse get_projects() to see available projects.'
                 error_msg += "\nNote: Use the project short name (e.g., 'ITSFT') not the full name."
-        except Exception:
+        except (ValueError, KeyError, AttributeError):
             error_msg += f' - {response.text}'
 
         logger.error(error_msg)
@@ -368,7 +387,7 @@ class IssuesClient:
         for item in response:
             try:
                 issues.append(Issue.model_validate(item))
-            except Exception as e:
+            except (ValueError, TypeError, KeyError) as e:
                 # Log the error but continue processing other issues
                 logger.warning(f'Failed to validate issue: {e!s}')
 
