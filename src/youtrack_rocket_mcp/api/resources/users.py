@@ -88,7 +88,7 @@ class UsersClient:
         for item in response:
             try:
                 users.append(User.model_validate(item))
-            except Exception as e:
+            except (ValueError, TypeError, KeyError) as e:
                 # Log the error but continue processing other users
                 logger.warning(f'Failed to validate user: {e!s}')
 
@@ -145,6 +145,6 @@ class UsersClient:
             # Different permissions might require different group checks
             # This is a simplified example
             return any(permission.lower() in (group.get('name', '').lower() or '') for group in groups)
-        except Exception:
+        except (ValueError, KeyError, AttributeError):
             # If we can't determine, assume no permission
             return False

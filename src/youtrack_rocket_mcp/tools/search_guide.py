@@ -12,7 +12,8 @@ from youtrack_rocket_mcp.api.types import ToolRegistry
 class SearchGuide:
     """Guide for YouTrack search query syntax and attributes."""
 
-    async def get_search_syntax_guide(self) -> str:
+    @staticmethod
+    async def get_search_syntax_guide() -> str:
         """
         Get a comprehensive guide for YouTrack search query syntax.
 
@@ -222,7 +223,8 @@ class SearchGuide:
 
         return json.dumps(guide, indent=2)
 
-    async def get_common_queries(self) -> str:
+    @staticmethod
+    async def get_common_queries() -> str:
         """
         Get a list of common YouTrack search queries for typical use cases.
 

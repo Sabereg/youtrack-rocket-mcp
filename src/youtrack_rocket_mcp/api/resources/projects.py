@@ -10,6 +10,8 @@ from pydantic import BaseModel, Field
 from youtrack_rocket_mcp.api.client import YouTrackClient
 from youtrack_rocket_mcp.api.types import JSONDict, JSONList
 
+logger = logging.getLogger(__name__)
+
 
 class Project(BaseModel):
     """Model for a YouTrack project."""
@@ -73,9 +75,8 @@ class ProjectsClient:
         try:
             custom_fields = await self.get_custom_fields(project_id)
             response['custom_fields'] = custom_fields
-        except Exception as e:
+        except (ValueError, KeyError, AttributeError) as e:
             # Log error but don't fail if we can't get custom fields
-            logger = logging.getLogger(__name__)
             logger.warning(f'Could not fetch custom fields for project {project_id}: {e}')
             response['custom_fields'] = []
 
@@ -121,7 +122,6 @@ class ProjectsClient:
         Returns:
             List of issues in the project
         """
-        logger = logging.getLogger(__name__)
         logger.info(f'Getting issues for project {project_id}, limit {limit}')
 
         # Request more fields to get complete issue information
@@ -145,7 +145,7 @@ class ProjectsClient:
         try:
             issues = await self.client.get('issues', params=params)
             logger.info(f'Retrieved {len(issues) if isinstance(issues, list) else 0} issues')
-        except Exception:
+        except (ValueError, KeyError, TypeError):
             logger.exception(f'Error getting issues for project {project_id}')
             # Return empty list on error
             return []
@@ -182,7 +182,6 @@ class ProjectsClient:
             data['leader'] = {'id': lead_id}  # type: ignore[assignment]
 
         # Debug logging
-        logger = logging.getLogger(__name__)
         logger.info(f'Creating project with data: {json.dumps(data)}')
         logger.info(f'Base URL: {self.client.base_url}, API endpoint: admin/projects')
 
@@ -197,7 +196,7 @@ class ProjectsClient:
                     # Get the full project details
                     created_project = await self.get_project(response['id'])
                     logger.info(f'Successfully retrieved full project details: {created_project.name}')
-                except Exception as e:
+                except (ValueError, KeyError, AttributeError) as e:
                     logger.warning(f'Could not retrieve full project details: {e!s}')
                     # Fall back to creating a model with the available data
                     # We need to ensure shortName is present
@@ -211,7 +210,7 @@ class ProjectsClient:
             # Try to validate the model, which might fail if fields are missing
             try:
                 return Project.model_validate(response)
-            except Exception as e:
+            except (ValueError, TypeError, KeyError) as e:
                 logger.warning(f'Could not validate project model: {e!s}')
                 # As a last resort, create a minimal valid project
                 minimal_project = {
@@ -221,7 +220,7 @@ class ProjectsClient:
                     'description': description,
                 }
                 return Project.model_validate(minimal_project)
-        except Exception:
+        except (ValueError, TypeError, KeyError):
             logger.exception('Error creating project')
             raise
 
@@ -247,7 +246,6 @@ class ProjectsClient:
             The updated project data
         """
         # First get the existing project data
-        logger = logging.getLogger(__name__)
         logger.info(f'Getting existing project data for {project_id}')
 
         try:
@@ -279,7 +277,7 @@ class ProjectsClient:
                 # Get the updated project data
                 updated_project = await self.get_project(project_id)
                 logger.info(f'Successfully retrieved updated project: {updated_project.name}')
-            except Exception:
+            except (ValueError, KeyError, AttributeError):
                 logger.exception('Error getting updated project')
                 # If we can't get the updated project, create a partial project with the data we have
                 if isinstance(response, dict) and 'id' in response:
@@ -293,18 +291,18 @@ class ProjectsClient:
                                 original_project.leader = value  # type: ignore[assignment]
                             else:
                                 setattr(original_project, key, value)
-                    except Exception:
-                        # If we can't get the original project either, just return the response
+                    except (ValueError, KeyError, AttributeError):
+                        # If we can't get the original project either, validate and return the response
                         logger.warning(f'Unable to get original project, returning response: {response}')
-                        return response  # type: ignore[return-value]
+                        return Project.model_validate(response)
                     else:
                         return original_project
                 else:
-                    # If the response doesn't have an ID, just return it
-                    return response
+                    # If the response doesn't have an ID, validate and return it
+                    return Project.model_validate(response)
             else:
                 return updated_project
-        except Exception:
+        except (ValueError, TypeError, KeyError):
             logger.exception(f'Error updating project {project_id}')
             raise
 
@@ -337,7 +335,6 @@ class ProjectsClient:
         # The bundle field is only available on specific subtypes like EnumProjectCustomField
         params = {'fields': fields}
 
-        logger = logging.getLogger(__name__)
         try:
             result = await self.client.get(f'admin/projects/{project_id}/customFields', params=params)
             field_count = len(result) if isinstance(result, list) else 0
@@ -370,18 +367,18 @@ class ProjectsClient:
                             # Merge the bundle info into the original field
                             if 'bundle' in field_with_bundle:
                                 field['bundle'] = field_with_bundle['bundle']
-                    except Exception as bundle_error:
+                    except (ValueError, KeyError, AttributeError) as bundle_error:
                         logger.debug(f'Could not get bundle for field {field.get("id")}: {bundle_error!s}')
 
                 enhanced_fields.append(field)
 
-        except Exception:
+        except (ValueError, KeyError, TypeError):
             logger.exception(f'Error getting detailed custom fields for project {project_id}')
             # Fallback to basic request without fields parameter
             try:
                 basic_result = await self.client.get(f'admin/projects/{project_id}/customFields')
                 logger.warning(f'Falling back to basic custom fields request for project {project_id}')
-            except Exception:
+            except (ValueError, KeyError, TypeError):
                 logger.exception('Fallback request also failed')
                 raise
             else:
@@ -419,8 +416,6 @@ class ProjectsClient:
         Returns:
             Dictionary with field information extracted from issues
         """
-        logger = logging.getLogger(__name__)
-
         try:
             # Get sample issues from the project
             issues = await self.get_project_issues(project_id, limit=10)
@@ -478,7 +473,7 @@ class ProjectsClient:
                 'analyzed_issues': len(issues),
             }
 
-        except Exception:
+        except (ValueError, KeyError, TypeError):
             logger.exception(f'Error analyzing project fields from issues for {project_id}')
             raise
 
@@ -508,8 +503,6 @@ class ProjectsClient:
                 - possible_values: For enum fields, list of valid values
                 - empty_text: Text shown when field is empty
         """
-        logger = logging.getLogger(__name__)
-
         try:
             # First resolve project ID if short name was provided
             if project_id and not project_id.startswith('0-'):
@@ -583,6 +576,6 @@ class ProjectsClient:
                 ),
             }
 
-        except Exception:
+        except (ValueError, KeyError, TypeError):
             logger.exception(f'Error getting detailed project info for {project_id}')
             raise

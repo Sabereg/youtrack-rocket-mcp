@@ -195,7 +195,7 @@ async def test_get_field_types_success(mock_client, sample_project_fields):
 @pytest.mark.asyncio
 async def test_get_field_types_handles_api_error(mock_client):
     """Test handling API errors gracefully."""
-    mock_client.get.side_effect = Exception('API Error')
+    mock_client.get.side_effect = ValueError('API Error')
 
     result = await get_field_types_from_project(mock_client, '0-167')
 

@@ -177,7 +177,7 @@ async def get_field_types_from_project(client: YouTrackClient, project_id: str) 
                 }
                 logger.debug(f"Got field '{field_name}' from project: {project_type} -> {issue_type}")
 
-    except Exception as e:
+    except (ValueError, KeyError, TypeError) as e:
         logger.debug(f'Could not get field types from project: {e}')
         return None
     else:

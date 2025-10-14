@@ -60,7 +60,7 @@ class ProjectTools:
                     result.append(project)  # Assume it's already a dict
 
             return json.dumps(result, indent=2)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.exception('Error getting projects')
             return json.dumps({'error': str(e)})
 
@@ -171,7 +171,7 @@ class ProjectTools:
                 result['custom_fields_summary'] = f'{len(compact_fields)} fields configured'
 
             return json.dumps(result, indent=2)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.exception(f'Error getting project {project_id or project}')
             return json.dumps({'error': str(e)})
 
@@ -199,7 +199,7 @@ class ProjectTools:
 
                 return json.dumps(result, indent=2)
             return json.dumps({'error': f"Project '{project_name}' not found"})
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.exception(f'Error finding project by name {project_name}')
             return json.dumps({'error': str(e)})
 
@@ -231,7 +231,7 @@ class ProjectTools:
                 issues = await self.projects_api.get_project_issues(project_identifier, limit)
                 if issues:
                     return json.dumps(issues, indent=2)
-            except Exception as e:
+            except (ValueError, KeyError, TypeError) as e:
                 # If that fails, check if it was a non-ID format error
                 if not str(e).startswith('Project not found'):
                     logger.exception(f'Error getting issues for project {project_identifier}')
@@ -244,10 +244,10 @@ class ProjectTools:
                     issues = await self.projects_api.get_project_issues(project_obj.id, limit)
                     return json.dumps(issues, indent=2)
                 return json.dumps({'error': f'Project not found: {project_identifier}'})
-            except Exception as e:
+            except (ValueError, KeyError, TypeError) as e:
                 logger.exception(f'Error getting issues for project {project_identifier}')
                 return json.dumps({'error': str(e)})
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.exception(f'Error processing get_project_issues({project_id or project}, {limit})')
             return json.dumps({'error': str(e)})
 
@@ -313,7 +313,7 @@ class ProjectTools:
 
             return json.dumps({'error': f'Field "{field_name}" not found in project {project_id}'})
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.exception(f'Error getting field values for {field_name} in project {project_id}')
             return json.dumps({'error': str(e)})
 
@@ -359,11 +359,11 @@ class ProjectTools:
                         # Last resort: convert to string
                         result.append(str(field))
                 return json.dumps(result, indent=2)
-            except Exception as e:
+            except (ValueError, KeyError, TypeError) as e:
                 # If we can't iterate, return the raw string representation
                 logger.warning(f'Could not process custom fields response: {e!s}')
                 return json.dumps({'custom_fields': str(fields)})
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.exception(f'Error getting custom fields for project {project_id or project}')
             return json.dumps({'error': str(e)})
 
@@ -416,7 +416,7 @@ class ProjectTools:
                 detailed_info = detailed_info.model_dump()
 
             return json.dumps(detailed_info, indent=2)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.exception(f'Error getting detailed project info for {project_id or project}')
             return json.dumps({'error': str(e)})
 
@@ -443,7 +443,7 @@ class ProjectTools:
 
             fields_info = await self.projects_api.get_project_fields_from_issues(project_identifier)
             return json.dumps(fields_info, indent=2)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.exception(f'Error getting project fields for {project_id or project}')
             return json.dumps({'error': str(e)})
 
@@ -480,7 +480,7 @@ class ProjectTools:
             result = project.model_dump() if hasattr(project, 'model_dump') else project
 
             return json.dumps(result, indent=2)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.exception(f'Error creating project {name}')
             return json.dumps({'error': str(e)})
 
@@ -553,7 +553,7 @@ class ProjectTools:
                     # Use the client directly instead of the API method
                     await self.client.post(f'admin/projects/{project_identifier}', data=data)
                     logger.info('Update API call successful')
-                except Exception as e:
+                except (ValueError, KeyError, TypeError) as e:
                     logger.warning(f'Update API call error: {e!s}')
                     # Continue anyway as the update might still have worked
 
@@ -565,12 +565,12 @@ class ProjectTools:
                     if hasattr(updated_project, 'model_dump'):
                         return json.dumps(updated_project.model_dump(), indent=2)
                     return json.dumps(updated_project, indent=2)
-                except Exception as e:
+                except (ValueError, KeyError, TypeError) as e:
                     logger.exception('Error retrieving updated project')
                     return json.dumps({'error': f'Project was updated but could not retrieve the result: {e!s}'})
-            except Exception as e:
+            except (ValueError, KeyError, TypeError) as e:
                 return json.dumps({'error': f'Could not update project: {e!s}'})
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.exception(f'Error updating project {project_id or project}')
             return json.dumps({'error': str(e)})
 
@@ -578,7 +578,8 @@ class ProjectTools:
         """Close the API client."""
         self.client.close()
 
-    def get_tool_definitions(self) -> ToolRegistry:
+    @staticmethod
+    def get_tool_definitions() -> ToolRegistry:
         """
         Get the definitions of all project tools.
 

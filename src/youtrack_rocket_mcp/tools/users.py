@@ -32,7 +32,7 @@ class UserTools:
         try:
             user = await self.users_api.get_current_user()
             return json.dumps(user.model_dump(), indent=2)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.exception('Error getting current user')
             return json.dumps({'error': str(e)})
 
@@ -64,7 +64,7 @@ class UserTools:
             result = user_obj.model_dump() if hasattr(user_obj, 'model_dump') else user_obj
 
             return json.dumps(result, indent=2)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.exception(f'Error getting user {user_id or user}')
             return json.dumps({'error': str(e)})
 
@@ -93,7 +93,7 @@ class UserTools:
             result = user.model_dump() if hasattr(user, 'model_dump') else user
 
             return json.dumps(result, indent=2)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.exception(f'Error getting user with login {login}')
             return json.dumps({'error': str(e)})
 
@@ -139,11 +139,11 @@ class UserTools:
                         # Last resort: convert to string
                         result.append(str(group))
                 return json.dumps(result, indent=2)
-            except Exception as e:
+            except (ValueError, KeyError, TypeError) as e:
                 # If we can't iterate, return the raw string representation
                 logger.warning(f'Could not process groups response: {e!s}')
                 return json.dumps({'groups': str(groups)})
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.exception(f'Error getting groups for user {user_id or user}')
             return json.dumps({'error': str(e)})
 
@@ -163,7 +163,7 @@ class UserTools:
         try:
             users = await self.users_api.search_users(query, limit=limit)
             return json.dumps([u.model_dump() for u in users], indent=2)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.exception(f'Error searching users with query {query}')
             return json.dumps({'error': str(e)})
 

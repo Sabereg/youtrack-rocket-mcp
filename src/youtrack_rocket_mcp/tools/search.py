@@ -81,7 +81,7 @@ class SearchTools:
                 try:
                     count_full = await self.client.get('issues', params=count_params_full)
                     total_count = len(count_full)
-                except Exception:
+                except (ValueError, KeyError, TypeError):
                     total_count = len(raw_issues)  # Fallback to current count
 
             # Format custom fields for each issue
@@ -102,7 +102,7 @@ class SearchTools:
             # Return the formatted issues data
             return json.dumps(result, indent=2)
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.exception(f'Error performing advanced search with query: {query}')
             return json.dumps({'error': str(e)})
 
@@ -222,7 +222,7 @@ class SearchTools:
             # Call advanced_search with the constructed query
             return await self.advanced_search(query=query, limit=limit)
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.exception('Error filtering issues')
             return json.dumps({'error': str(e)})
 
@@ -271,7 +271,7 @@ class SearchTools:
             # Call advanced_search with the combined query
             return await self.advanced_search(query=combined_query, limit=limit)
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.exception('Error searching with custom fields')
             return json.dumps({'error': str(e)})
 

@@ -19,6 +19,7 @@ import ssl
 
 # Optional import for dotenv
 try:
+    # noinspection PyUnusedImports
     from dotenv import load_dotenv
 
     # Load environment variables from .env file if it exists

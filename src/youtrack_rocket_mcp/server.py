@@ -83,7 +83,7 @@ def main():
         # Configuration errors - show user-friendly message
         print(f'\n❌ Configuration Error:\n{e!s}', file=sys.stderr)
         sys.exit(1)
-    except Exception as e:
+    except Exception as e:  # COMMENT: Top-level handler to prevent silent crashes and ensure proper error logging
         if config.MCP_DEBUG:
             # Show full traceback in debug mode
             raise

@@ -62,7 +62,7 @@ class IssueTools:
             # Return the raw issue data directly - avoid model validation issues
             return json.dumps(raw_issue, indent=2)
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.exception(f'Error getting issue {issue_id}')
             return json.dumps({'error': str(e)})
 
@@ -104,7 +104,7 @@ class IssueTools:
 
                         if count_value >= 0:
                             total_count = count_value
-                except Exception:
+                except (ValueError, KeyError, TypeError):
                     # Fallback to current count if request fails
                     total_count = len(raw_issues)
 
@@ -119,7 +119,7 @@ class IssueTools:
             # Return the formatted issues data
             return json.dumps(result, indent=2)
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.exception(f'Error searching issues with query: {query}')
             return json.dumps({'error': str(e)})
 
@@ -168,7 +168,7 @@ class IssueTools:
 
                         if count_value >= 0:
                             total_count = count_value
-                except Exception:
+                except (ValueError, KeyError, TypeError):
                     # Fallback to current count if request fails
                     total_count = len(raw_issues)
 
@@ -201,12 +201,13 @@ class IssueTools:
             # Return the formatted issues data
             return json.dumps(result, indent=2)
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.exception(f'Error searching issues with detailed query: {query}')
             return json.dumps({'error': str(e)})
 
+    @staticmethod
     def _extract_parameters_from_dict(
-        self, project: dict
+        project: dict,
     ) -> tuple[str | None, str | None, str | None, CustomFieldData | None]:
         """Extract parameters from a dictionary format (backwards compatibility)."""
         description = project.get('description')
@@ -215,7 +216,8 @@ class IssueTools:
         project_name = project.get('project')
         return project_name, summary, description, custom_fields
 
-    def _generate_issue_url(self, issue_id: str | None, readable_id: str | None) -> str | None:
+    @staticmethod
+    def _generate_issue_url(issue_id: str | None, readable_id: str | None) -> str | None:
         """Generate URL for an issue."""
         if not (issue_id or readable_id):
             return None
@@ -229,8 +231,9 @@ class IssueTools:
             return f'{base_url}/issue/{issue_id}'
         return None
 
+    @staticmethod
     def _prepare_issue_response(
-        self, issue, issue_url: str | None, summary: str, description: str | None, project: str
+        issue, issue_url: str | None, summary: str, description: str | None, project: str
     ) -> JSONDict:
         """Prepare the response dictionary for an issue."""
         if hasattr(issue, 'model_dump'):
@@ -313,7 +316,7 @@ class IssueTools:
                     else:
                         logger.warning(f'Project not found: {project}')
                         return json.dumps({'error': f'Project not found: {project}', 'status': 'error'})
-                except Exception as e:
+                except (ValueError, KeyError, TypeError) as e:
                     logger.warning(f'Error finding project: {e!s}')
                     return json.dumps({'error': f'Error finding project: {e!s}', 'status': 'error'})
 
@@ -355,19 +358,19 @@ class IssueTools:
                 result = self._prepare_issue_response(issue, issue_url, summary, description, project)
 
                 return json.dumps(result, indent=2)
-            except Exception as e:
+            except (ValueError, KeyError, TypeError) as e:
                 error_msg = str(e)
                 if hasattr(e, 'response') and e.response:
                     try:
                         # Try to get detailed error message from response
                         error_content = e.response.content.decode('utf-8', errors='replace')
                         error_msg = f'{error_msg} - {error_content}'
-                    except Exception:
+                    except (ValueError, AttributeError, UnicodeDecodeError):
                         pass
                 logger.exception(f'API error creating issue: {error_msg}')
                 return json.dumps({'error': error_msg, 'status': 'error'})
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.exception(f'Error creating issue in project {project}')
             return json.dumps({'error': str(e), 'status': 'error'})
 
@@ -410,7 +413,7 @@ class IssueTools:
         try:
             result = await self.issues_api.add_comment(issue_id, text)
             return json.dumps(result, indent=2)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.exception(f'Error adding comment to issue {issue_id}')
             return json.dumps({'error': str(e)})
 
@@ -487,7 +490,7 @@ class IssueTools:
 
             return json.dumps(result, indent=2)
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.exception(f'Error executing command "{command}" on issues')
             return json.dumps({'error': str(e), 'command': command, 'issues': issues})
 
@@ -517,7 +520,7 @@ class IssueTools:
             raw_issue = await self.client.get(f'issues/{issue_id}?fields={fields}')
             # Return raw data without any formatting
             return json.dumps(raw_issue, indent=2)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.exception(f'Error getting raw issue {issue_id}')
             return json.dumps({'error': str(e)})
 
