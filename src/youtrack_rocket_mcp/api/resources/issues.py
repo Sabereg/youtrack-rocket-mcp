@@ -402,7 +402,7 @@ class IssuesClient:
 
         return issues
 
-    async def get_issue_comments(self, issue_id: str) -> list[JSONDict]:
+    async def get_issue_comments(self, issue_id: str) -> list[IssueCommentDict]:
         """
         Get comments for an issue.
 
@@ -414,19 +414,7 @@ class IssuesClient:
         """
         # Request comments with detailed author information
         fields = 'id,created,text,author(id,login,name)'
-        response = await self.client.get(f'issues/{issue_id}/comments?fields={fields}')
-
-        # The response should be a list of comments
-        if isinstance(response, list):
-            return response
-        elif isinstance(response, dict) and 'comments' in response:
-            return response['comments']
-        else:
-            # Fallback: try to get comments as part of issue data
-            issue_response = await self.client.get(f'issues/{issue_id}?fields=comments({fields})')
-            if isinstance(issue_response, dict) and 'comments' in issue_response:
-                return issue_response['comments']
-            return []
+        return await self.client.get(f'issues/{issue_id}/comments?fields={fields}', schema=list[IssueCommentDict])
 
     async def add_comment(self, issue_id: str, text: str) -> IssueCommentDict:
         """
