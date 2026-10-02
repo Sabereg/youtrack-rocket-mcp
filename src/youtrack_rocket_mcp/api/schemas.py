@@ -32,6 +32,22 @@ class IssueCommentDict(TypedDict):
 IssueCommentDict.__annotations__['$type'] = NotRequired[str]
 
 
+class IssueAttachmentDict(TypedDict):
+    """YouTrack issue attachment object."""
+
+    id: str
+    name: str
+    url: str
+    mimeType: NotRequired[str | None]
+    size: NotRequired[int]
+    created: NotRequired[int]
+    author: NotRequired[dict[str, Any] | None]
+    comment: NotRequired[dict[str, Any] | None]  # Set when the file is attached to a comment
+
+
+IssueAttachmentDict.__annotations__['$type'] = NotRequired[str]
+
+
 class ProjectCustomFieldDict(TypedDict):
     """YouTrack project custom field object."""
 

@@ -7,6 +7,7 @@ import logging
 import random
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, TypeVar, cast, overload
+from urllib.parse import urljoin
 
 import httpx
 from pydantic import BaseModel, ConfigDict
@@ -284,6 +285,35 @@ class YouTrackClient:
             Parsed JSON response
         """
         return await self._make_request('DELETE', endpoint, **kwargs)
+
+    async def download(self, url: str) -> bytes:
+        """
+        Download raw file content, e.g. an attachment by its signed URL.
+
+        Args:
+            url: Absolute URL or a server-relative path as returned by YouTrack (e.g. /api/files/...?sign=...)
+
+        Returns:
+            File content as bytes
+
+        Raises:
+            YouTrackAPIError: If the download fails
+        """
+        full_url = urljoin(f'{self.base_url}/', url)
+        try:
+            response = await self.client.get(full_url, headers={'Accept': '*/*'}, follow_redirects=True)
+        except httpx.HTTPError as e:
+            raise YouTrackAPIError(f'Download failed: {e}') from e
+
+        if response.status_code == 200:
+            return response.content
+        if response.status_code == 401:
+            raise AuthenticationError('Authentication failed. Check your API token.', response.status_code, response)
+        if response.status_code == 403:
+            raise PermissionDeniedError(f'Permission denied for {url}', response.status_code, response)
+        if response.status_code == 404:
+            raise ResourceNotFoundError(f'File not found: {url}', response.status_code, response)
+        raise YouTrackAPIError(f'Download failed with status {response.status_code}', response.status_code, response)
 
     async def close(self) -> None:
         """Close the HTTP client."""
