@@ -5,12 +5,14 @@ YouTrack Issue MCP tools.
 import asyncio
 import json
 import logging
+import tempfile
+from pathlib import Path
 from typing import Annotated, Any
 
 from fastmcp import FastMCP
 from pydantic import Field
 
-from youtrack_rocket_mcp.api.client import YouTrackClient
+from youtrack_rocket_mcp.api.client import YouTrackAPIError, YouTrackClient
 from youtrack_rocket_mcp.api.resources.issues import IssuesClient
 from youtrack_rocket_mcp.api.resources.projects import ProjectsClient
 from youtrack_rocket_mcp.api.resources.search import SearchClient
@@ -357,6 +359,77 @@ class IssueTools:
             logger.exception(f'Error getting comments for issue {issue_id}')
             return json.dumps({'error': str(e), 'issue_id': issue_id})
 
+    async def get_issue_attachments(self, issue_id: str) -> str:
+        """
+        Get all attachments of an issue.
+
+        FORMAT: get_issue_attachments(issue_id="DEMO-123")
+
+        Args:
+            issue_id: The issue ID or readable ID (e.g., PROJECT-123)
+
+        Returns:
+            JSON string with the list of attachments
+        """
+        try:
+            attachments = await self.issues_api.get_issue_attachments(issue_id)
+            result = {'issue_id': issue_id, 'attachments_count': len(attachments), 'attachments': attachments}
+            return json.dumps(result, indent=2, ensure_ascii=False)
+        except YouTrackAPIError as e:
+            logger.exception(f'Error getting attachments for issue {issue_id}')
+            return json.dumps({'error': str(e), 'issue_id': issue_id})
+
+    async def download_attachment(self, issue_id: str, attachment: str, dest_dir: str | None = None) -> str:
+        """
+        Download an issue attachment to a local file.
+
+        FORMAT: download_attachment(issue_id="DEMO-123", attachment="screenshot.png")
+
+        Args:
+            issue_id: The issue ID or readable ID (e.g., PROJECT-123)
+            attachment: Attachment ID or exact file name
+            dest_dir: Target directory; defaults to <system temp>/youtrack-attachments/<issue_id>
+
+        Returns:
+            JSON string with the local file path, or an error
+        """
+        try:
+            attachments = await self.issues_api.get_issue_attachments(issue_id)
+            matches = [a for a in attachments if attachment in (a['id'], a['name'])]
+            if not matches:
+                available = [{'id': a['id'], 'name': a['name']} for a in attachments]
+                return json.dumps(
+                    {'error': f'Attachment not found: {attachment}', 'available': available}, ensure_ascii=False
+                )
+            if len(matches) > 1:
+                duplicates = [{'id': a['id'], 'name': a['name']} for a in matches]
+                return json.dumps(
+                    {'error': f'Several attachments named {attachment}, pass an ID', 'matches': duplicates},
+                    ensure_ascii=False,
+                )
+
+            found = matches[0]
+            content = await self.client.download(found['url'])
+
+            target_dir = Path(dest_dir) if dest_dir else Path(tempfile.gettempdir()) / 'youtrack-attachments' / issue_id
+            target_dir.mkdir(parents=True, exist_ok=True)
+            # Keep only the base name so an attachment name can't escape target_dir
+            path = target_dir / Path(found['name']).name
+            path.write_bytes(content)
+
+            result = {
+                'issue_id': issue_id,
+                'id': found['id'],
+                'name': found['name'],
+                'mimeType': found.get('mimeType'),
+                'size': len(content),
+                'path': str(path),
+            }
+            return json.dumps(result, indent=2, ensure_ascii=False)
+        except (YouTrackAPIError, OSError) as e:
+            logger.exception(f'Error downloading attachment {attachment} of issue {issue_id}')
+            return json.dumps({'error': str(e), 'issue_id': issue_id}, ensure_ascii=False)
+
     async def add_comment(self, issue_id: str, text: str) -> str:
         """
         Add a comment to an issue.
@@ -535,6 +608,25 @@ def register_issue_tools(mcp: FastMCP[None]) -> None:
     ) -> str:
         """Retrieve all comments for an issue. Use to read discussion history, updates, and clarifications. Returns JSON with comment details."""
         return await issue_tools.get_issue_comments(issue_id)
+
+    @mcp.tool()
+    async def get_issue_attachments(
+        issue_id: Annotated[str, Field(description='Issue ID (e.g., ITSFT-123 or 2-12345)')],
+    ) -> str:
+        """List files attached to an issue and its comments: name, MIME type, size, author. Use download_attachment to fetch a file."""
+        return await issue_tools.get_issue_attachments(issue_id)
+
+    @mcp.tool()
+    async def download_attachment(
+        issue_id: Annotated[str, Field(description='Issue ID (e.g., ITSFT-123 or 2-12345)')],
+        attachment: Annotated[str, Field(description='Attachment ID or exact file name from get_issue_attachments')],
+        dest_dir: Annotated[
+            str | None,
+            Field(description='Directory to save into (default: <system temp>/youtrack-attachments/<issue_id>)'),
+        ] = None,
+    ) -> str:
+        """Download an issue attachment to a local file and return its path, so the file can be opened and read."""
+        return await issue_tools.download_attachment(issue_id, attachment, dest_dir)
 
     @mcp.tool()
     async def add_comment(

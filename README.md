@@ -15,6 +15,8 @@ Model Context Protocol (MCP) is an open standard that enables AI models to inter
   - `search_issues_detailed` - Full search with custom fields filtering (limit 30)
   - `create_issue` - Create new bug reports, features, or tasks
   - `add_comment` - Add comments to issues with markdown support
+  - `get_issue_attachments` - List files attached to an issue and its comments
+  - `download_attachment` - Download an attachment to a local file
   - `execute_command` - Batch update issues (assign, change state, priority, etc.)
 
 - **Project Management**
@@ -402,6 +404,8 @@ The YouTrack MCP server provides the following tools with proper parameter schem
 - `search_issues` - Search for issues using YouTrack query language
 - `create_issue` - Create a new issue with custom fields support
 - `add_comment` - Add a comment to an existing issue
+- `get_issue_attachments` - List attachments of an issue (name, MIME type, size, author)
+- `download_attachment` - Download an attachment by ID or file name and return the local path
 
 ### Projects
 

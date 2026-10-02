@@ -15,7 +15,7 @@ from youtrack_rocket_mcp.api.field_cache import (
     get_field_types_from_project,
 )
 from youtrack_rocket_mcp.api.resources.projects import ProjectsClient
-from youtrack_rocket_mcp.api.schemas import IssueCommentDict
+from youtrack_rocket_mcp.api.schemas import IssueAttachmentDict, IssueCommentDict
 from youtrack_rocket_mcp.api.types import CustomFieldData, FieldTypes, FieldValue, JSONDict
 from youtrack_rocket_mcp.utils.period_parser import parse_period_to_minutes
 
@@ -415,6 +415,19 @@ class IssuesClient:
         # Request comments with detailed author information
         fields = 'id,created,text,author(id,login,name)'
         return await self.client.get(f'issues/{issue_id}/comments?fields={fields}', schema=list[IssueCommentDict])
+
+    async def get_issue_attachments(self, issue_id: str) -> list[IssueAttachmentDict]:
+        """
+        Get attachments of an issue, including files attached to its comments.
+
+        Args:
+            issue_id: The issue ID or readable ID (e.g., PROJECT-123)
+
+        Returns:
+            List of attachments with name, MIME type, size, signed download URL and author
+        """
+        fields = 'id,name,mimeType,size,created,url,author(id,login,name),comment(id)'
+        return await self.client.get(f'issues/{issue_id}/attachments?fields={fields}', schema=list[IssueAttachmentDict])
 
     async def add_comment(self, issue_id: str, text: str) -> IssueCommentDict:
         """
